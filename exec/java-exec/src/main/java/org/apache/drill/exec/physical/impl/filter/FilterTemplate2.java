@@ -27,6 +27,10 @@ import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.TransferPair;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import org.apache.drill.exec.vector.NullableVarCharVector;
+
 public abstract class FilterTemplate2 implements Filterer{
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(FilterTemplate2.class);
 
@@ -34,12 +38,31 @@ public abstract class FilterTemplate2 implements Filterer{
   private SelectionVector2 incomingSelectionVector;
   private SelectionVectorMode svMode;
   private TransferPair[] transfers;
+  private RecordBatch incoming;
+  private ByteBuffer dataBuf;
+  private ByteBuffer resultBuf;
+  private ByteBuffer recordCountBuf;
+  private ByteBuffer dataSizeBuf;
+  private ByteBuffer patternBuf;
+
+  public native void init_device();
+  public native void write_data(ByteBuffer data, ByteBuffer dataSize, ByteBuffer recordCount);
+  public native void execute_device();
+  public native void read_result(ByteBuffer result, ByteBuffer recordCount);
+  static { System.loadLibrary("drill_offload"); }
 
   @Override
   public void setup(FragmentContext context, RecordBatch incoming, RecordBatch outgoing, TransferPair[] transfers) throws SchemaChangeException{
     this.transfers = transfers;
     this.outgoingSelectionVector = outgoing.getSelectionVector2();
     this.svMode = incoming.getSchema().getSelectionVectorMode();
+    this.incoming = incoming;
+
+    dataSizeBuf = ByteBuffer.allocateDirect(4);
+    dataSizeBuf.order(ByteOrder.LITTLE_ENDIAN);
+    recordCountBuf = ByteBuffer.allocateDirect(4);
+    recordCountBuf.order(ByteOrder.LITTLE_ENDIAN);
+    resultBuf = ByteBuffer.allocateDirect(8096);
 
     switch(svMode){
     case NONE:
@@ -51,6 +74,7 @@ public abstract class FilterTemplate2 implements Filterer{
       // SV4 is handled in FilterTemplate4
       throw new UnsupportedOperationException();
     }
+    //init_device();
     doSetup(context, incoming, outgoing);
   }
 
@@ -95,11 +119,25 @@ public abstract class FilterTemplate2 implements Filterer{
 
   private void filterBatchNoSV(int recordCount){
     int svIndex = 0;
-    for(int i = 0; i < recordCount; i++){
-      if(doEval(i, 0)){
-        outgoingSelectionVector.setIndex(svIndex, (char)i);
-        svIndex++;
-      }
+    int[] fieldIds = new int[1];
+    fieldIds[0] = 0;
+    dataBuf = ((NullableVarCharVector)incoming.getValueAccessorById(NullableVarCharVector.class, fieldIds).getValueVector()).getBuffer().nioBuffer();
+    recordCountBuf.putInt(recordCount);
+    dataSizeBuf.putInt(recordCount * 64);
+    write_data(dataBuf, dataSizeBuf, recordCountBuf);
+    execute_device();
+    read_result(resultBuf, recordCountBuf);
+    //for(int i = 0; i < recordCount; i++){
+    //  if(doEval(i, 0)){
+    //    outgoingSelectionVector.setIndex(svIndex, (char)i);
+    //    svIndex++;
+    //  }
+    //}
+    for (int i = 0; i < recordCount; i++) {
+        if ((int)resultBuf.get(i) != 0) {
+            outgoingSelectionVector.setIndex(svIndex, (char)i);
+            svIndex++;
+        }
     }
     outgoingSelectionVector.setRecordCount(svIndex);
   }
