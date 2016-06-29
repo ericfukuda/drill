@@ -69,7 +69,7 @@ public abstract class FilterTemplate2 implements Filterer{
     dataSizeBuf.order(ByteOrder.LITTLE_ENDIAN);
     recordCountBuf = ByteBuffer.allocateDirect(4);
     recordCountBuf.order(ByteOrder.LITTLE_ENDIAN);
-    resultBuf = ByteBuffer.allocateDirect(8096);
+    resultBuf = ByteBuffer.allocateDirect(8192);
 
     switch(svMode){
     case NONE:
@@ -81,7 +81,7 @@ public abstract class FilterTemplate2 implements Filterer{
       // SV4 is handled in FilterTemplate4
       throw new UnsupportedOperationException();
     }
-    //init_device();
+    init_device();
     doSetup(context, incoming, outgoing);
   }
 
@@ -141,7 +141,9 @@ public abstract class FilterTemplate2 implements Filterer{
     fBuf = ((NullableBigIntVector)incoming.getValueAccessorById(NullableBigIntVector.class, fieldIds).getValueVector()).getBuffer().nioBuffer();
     fieldIds[0] = 19;
     gBuf = ((NullableBigIntVector)incoming.getValueAccessorById(NullableBigIntVector.class, fieldIds).getValueVector()).getBuffer().nioBuffer();
+    recordCountBuf.rewind();
     recordCountBuf.putInt(recordCount);
+    dataSizeBuf.rewind();
     dataSizeBuf.putInt(recordCount * 8);
     write_data(aBuf, bBuf, cBuf, dBuf, eBuf, fBuf, gBuf, dataSizeBuf, recordCountBuf);
     execute_device();
