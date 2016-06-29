@@ -43,6 +43,8 @@ bin=`cd "$bin">/dev/null; pwd`
 # This is not currently needed as the new SQLLine we are using doesn't isolate.
 # DRILL_SHELL_JAVA_OPTS="-Dsqlline.isolation=TRANSACTION_NONE $DRILL_SHELL_JAVA_OPTS"
 
+DRILL_JAVA_OPTS="$DRILL_JAVA_OPTS -Djava.library.path=/home/efukuda/drill_offload"
+DRILL_JAVA_OPTS="$DRILL_JAVA_OPTS -Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=8000"
 DRILL_SHELL_JAVA_OPTS="$DRILL_SHELL_JAVA_OPTS -Dlog.path=$DRILL_LOG_DIR/sqlline.log -Dlog.query.path=$DRILL_LOG_DIR/sqlline_queries.json"
 
 if ! $is_cygwin; then
