@@ -29,8 +29,7 @@ import org.apache.drill.exec.record.selection.SelectionVector2;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-//import org.apache.drill.exec.vector.NullableVarCharVector;
-import org.apache.drill.exec.vector.NullableBigIntVector;
+import org.apache.drill.exec.vector.NullableVarCharVector;
 
 public abstract class FilterTemplate2 implements Filterer{
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(FilterTemplate2.class);
@@ -40,20 +39,14 @@ public abstract class FilterTemplate2 implements Filterer{
   private SelectionVectorMode svMode;
   private TransferPair[] transfers;
   private RecordBatch incoming;
-  private ByteBuffer aBuf;
-  private ByteBuffer bBuf;
-  private ByteBuffer cBuf;
-  private ByteBuffer dBuf;
-  private ByteBuffer eBuf;
-  private ByteBuffer fBuf;
-  private ByteBuffer gBuf;
+  private ByteBuffer dataBuf;
   private ByteBuffer resultBuf;
   private ByteBuffer recordCountBuf;
   private ByteBuffer dataSizeBuf;
   private ByteBuffer patternBuf;
 
   public native void init_device();
-  public native void write_data(ByteBuffer aBuf, ByteBuffer bBuf, ByteBuffer cBuf, ByteBuffer dBuf, ByteBuffer eBuf, ByteBuffer fBuf, ByteBuffer gBuf, ByteBuffer dataSize, ByteBuffer recordCount);
+  public native void write_data(ByteBuffer data, ByteBuffer dataSize, ByteBuffer recordCount);
   public native void execute_device();
   public native void read_result(ByteBuffer result, ByteBuffer recordCount);
   static { System.loadLibrary("drill_offload"); }
@@ -69,7 +62,7 @@ public abstract class FilterTemplate2 implements Filterer{
     dataSizeBuf.order(ByteOrder.LITTLE_ENDIAN);
     recordCountBuf = ByteBuffer.allocateDirect(4);
     recordCountBuf.order(ByteOrder.LITTLE_ENDIAN);
-    resultBuf = ByteBuffer.allocateDirect(8192);
+    resultBuf = ByteBuffer.allocateDirect(8096);
 
     switch(svMode){
     case NONE:
@@ -127,25 +120,11 @@ public abstract class FilterTemplate2 implements Filterer{
   private void filterBatchNoSV(int recordCount){
     int svIndex = 0;
     int[] fieldIds = new int[1];
-    fieldIds[0] = 13;
-    aBuf = ((NullableBigIntVector)incoming.getValueAccessorById(NullableBigIntVector.class, fieldIds).getValueVector()).getBuffer().nioBuffer();
-    fieldIds[0] = 14;
-    bBuf = ((NullableBigIntVector)incoming.getValueAccessorById(NullableBigIntVector.class, fieldIds).getValueVector()).getBuffer().nioBuffer();
-    fieldIds[0] = 15;
-    cBuf = ((NullableBigIntVector)incoming.getValueAccessorById(NullableBigIntVector.class, fieldIds).getValueVector()).getBuffer().nioBuffer();
-    fieldIds[0] = 16;
-    dBuf = ((NullableBigIntVector)incoming.getValueAccessorById(NullableBigIntVector.class, fieldIds).getValueVector()).getBuffer().nioBuffer();
-    fieldIds[0] = 17;
-    eBuf = ((NullableBigIntVector)incoming.getValueAccessorById(NullableBigIntVector.class, fieldIds).getValueVector()).getBuffer().nioBuffer();
-    fieldIds[0] = 18;
-    fBuf = ((NullableBigIntVector)incoming.getValueAccessorById(NullableBigIntVector.class, fieldIds).getValueVector()).getBuffer().nioBuffer();
-    fieldIds[0] = 19;
-    gBuf = ((NullableBigIntVector)incoming.getValueAccessorById(NullableBigIntVector.class, fieldIds).getValueVector()).getBuffer().nioBuffer();
-    recordCountBuf.rewind();
+    fieldIds[0] = 0;
+    dataBuf = ((NullableVarCharVector)incoming.getValueAccessorById(NullableVarCharVector.class, fieldIds).getValueVector()).getBuffer().nioBuffer();
     recordCountBuf.putInt(recordCount);
-    dataSizeBuf.rewind();
-    dataSizeBuf.putInt(recordCount * 8);
-    write_data(aBuf, bBuf, cBuf, dBuf, eBuf, fBuf, gBuf, dataSizeBuf, recordCountBuf);
+    dataSizeBuf.putInt(recordCount * 64);
+    write_data(dataBuf, dataSizeBuf, recordCountBuf);
     execute_device();
     read_result(resultBuf, recordCountBuf);
     //for(int i = 0; i < recordCount; i++){
