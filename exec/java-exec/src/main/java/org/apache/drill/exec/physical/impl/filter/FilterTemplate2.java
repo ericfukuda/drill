@@ -29,7 +29,7 @@ import org.apache.drill.exec.record.selection.SelectionVector2;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import org.apache.drill.exec.vector.NullableVarCharVector;
+import org.apache.drill.exec.vector.VarCharVector;
 
 public abstract class FilterTemplate2 implements Filterer{
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(FilterTemplate2.class);
@@ -121,8 +121,10 @@ public abstract class FilterTemplate2 implements Filterer{
     int svIndex = 0;
     int[] fieldIds = new int[1];
     fieldIds[0] = 0;
-    dataBuf = ((NullableVarCharVector)incoming.getValueAccessorById(NullableVarCharVector.class, fieldIds).getValueVector()).getBuffer().nioBuffer();
+    dataBuf = ((VarCharVector)incoming.getValueAccessorById(VarCharVector.class, fieldIds).getValueVector()).getBuffer().nioBuffer();
+    recordCountBuf.rewind();
     recordCountBuf.putInt(recordCount);
+    dataSizeBuf.rewind();
     dataSizeBuf.putInt(recordCount * 64);
     write_data(dataBuf, dataSizeBuf, recordCountBuf);
     execute_device();
